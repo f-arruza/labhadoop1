@@ -1,0 +1,8 @@
+uniandes\mapRed\NewsCMapper.class
+uniandes\reuters\job\WordCounter.class
+uniandes\mapRed\CReducer.class
+uniandes\reuters\job\NewsTitleWCounter.class
+uniandes\mapRed\NewsTitleCMapper.class
+uniandes\mapRed\WCMapper.class
+uniandes\reuters\job\Tester.class
+uniandes\reuters\job\NewsCounter.class
