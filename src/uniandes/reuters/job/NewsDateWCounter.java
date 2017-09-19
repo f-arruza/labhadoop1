@@ -8,7 +8,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
-import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import uniandes.mapRed.CReducer;
 import uniandes.mapRed.NewsDateCMapper;
@@ -30,43 +30,32 @@ public class NewsDateWCounter {
 	}
 	public static void ejecutarJob(String entrada, String salida) throws IOException,ClassNotFoundException, InterruptedException
 	{
-		/**
-		 * Objeto de configuración, dependiendo de la versión de Hadoop 
-		 * uno u otro es requerido. 
-		 * */
-		Configuration conf = new Configuration();		
-		Job wcJob=Job.getInstance(conf, "NewsCounter Job");
-		wcJob.setJarByClass(NewsDateWCounter.class);
-		//////////////////////
-		//Mapper
-		//////////////////////
-		
-		wcJob.setMapperClass(NewsDateCMapper.class);
-		
-		wcJob.setMapOutputKeyClass(Text.class);
-		wcJob.setMapOutputValueClass(IntWritable.class);
-		///////////////////////////
-		//Reducer
-		///////////////////////////
-		wcJob.setReducerClass(CReducer.class);
-		wcJob.setOutputKeyClass(Text.class);
-		wcJob.setOutputValueClass(IntWritable.class);
-		
-		///////////////////////////
-		//Input Format
-		///////////////////////////
-		//Advertencia: Hay dos clases con el mismo nombre, 
-		//pero no son equivalentes. 
-		//Se usa, en este caso, org.apache.hadoop.mapreduce.lib.input.TextInputFormat
-		TextInputFormat.setInputPaths(wcJob, new Path(entrada));
-		wcJob.setInputFormatClass(TextInputFormat.class); 
-		
-		////////////////////
-		///Output Format
-		//////////////////////
-		TextOutputFormat.setOutputPath(wcJob, new Path(salida));
-		wcJob.setOutputFormatClass(TextOutputFormat.class);
-		wcJob.waitForCompletion(true);
-		System.out.println(wcJob.toString());
+            Configuration conf = new Configuration();
+            conf.set("START_TAG_KEY", "<REUTERS>");
+            conf.set("END_TAG_KEY", "</REUTERS>");
+            
+            Job job = Job.getInstance(conf, "XML Processing Processing");
+            job.setJarByClass(NewsDateWCounter.class);            
+
+            // Mapper            
+            job.setMapperClass(NewsDateCMapper.class);
+            job.setMapOutputKeyClass(Text.class);
+            job.setMapOutputValueClass(IntWritable.class);
+            
+            // Reducer
+            job.setReducerClass(CReducer.class);
+            job.setOutputKeyClass(Text.class);
+            job.setOutputValueClass(IntWritable.class);
+            
+            // Input
+            FileInputFormat.addInputPath(job, new Path(entrada));
+            job.setInputFormatClass(XmlInputFormat.class);            
+ 
+            // Output
+            TextOutputFormat.setOutputPath(job, new Path(salida));
+            job.setOutputFormatClass(TextOutputFormat.class);
+            
+            job.waitForCompletion(true);
+            System.out.println(job.toString());
 	}
 }

@@ -1,15 +1,26 @@
 package uniandes.mapRed;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.io.InputStream;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 
 
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Mapper;
+import org.w3c.dom.DOMException;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
 
 public class NewsDateCMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
 	
@@ -18,27 +29,58 @@ public class NewsDateCMapper extends Mapper<LongWritable, Text, Text, IntWritabl
                     Context context)
                     throws IOException, InterruptedException {
         
-        Pattern p = Pattern.compile("(<DATE>)");
-        Matcher m = p.matcher(value.toString());
-        HashMap<String, Integer> places = new HashMap<>();
+        try { 
+            InputStream is = new ByteArrayInputStream(value.toString().getBytes());
+            DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
+            Document doc = dBuilder.parse(is);
+            
+            // Palabra buscada
+            String keyWord = "nakasone";
+            // Formato de Fecha
+            SimpleDateFormat sdf = new SimpleDateFormat("dd-MMM-yyyy HH:mm:ss");        
+            // Rango de Fechas
+            Calendar timeInit = Calendar.getInstance();
+            timeInit.set(1987, 7, 1);
+            Calendar timeEnd = Calendar.getInstance();
+            timeEnd.set(1987, 10, 31);
+ 
+            doc.getDocumentElement().normalize();            
+            NodeList nList = doc.getElementsByTagName("REUTERS");
+ 
+            for (int temp = 0; temp < nList.getLength(); temp++) { 
+                try {
+                    Node nNode = nList.item(temp);
 
-        if(m.find()) {            
-            String line = value.toString();
-            if(!line.isEmpty()) {
-                line = line.substring(6, (!line.contains("</DATE>"))? line.length() : line.indexOf("</DATE>"));
-                
-                String[] places_array = line.split("<D>");
-                for(String place : places_array) {
-                    if(!place.trim().isEmpty()) {
-                        place = place.substring(0, (!place.contains("</D>"))? place.length() : place.indexOf("</D>"));                        
-                        places.put(place, places.containsKey(places)? (places.get(place) + 1) : 1);
-                    }                
+                    if (nNode.getNodeType() == Node.ELEMENT_NODE) { 
+                        Element eElement = (Element) nNode; 
+                        String timeStr = eElement.getElementsByTagName("DATE").item(0).getTextContent();
+                        Calendar timeNews = Calendar.getInstance();
+                        timeNews.setTime(sdf.parse(timeStr));
+                        
+                        // Fecha de la noticia en el rango solicitado
+                        if(timeNews.after(timeInit) && timeNews.before(timeEnd)) {
+                            int count = 0;
+                            String body = eElement.getElementsByTagName("BODY").item(0).getTextContent();                    
+                            // Contar cantidad ocurrencias de la palabra "nakasone"
+                            String[] words = body.split("([().,!?:;'\"-]|\\s)+");
+                            for(String word : words){
+                                String lw = word.toLowerCase().trim();
+                                // Continua a la siguientes iteración
+                                // si obtiene una palabra vacía o diferente
+                                // a "nakasone"
+                                if(lw.isEmpty() || !word.equals(keyWord)){continue;} 
+                                count++;
+                            }
+                            context.write(new Text(keyWord), new IntWritable(count));
+                        }
+                    }
                 }
-                
-                for(String k : places.keySet()){
-                    context.write(new Text(k), new IntWritable(places.get(k)));
-		}                
+                catch(ParseException pex) {
+                }
             }
+        } catch (ParserConfigurationException | SAXException | IOException | DOMException | InterruptedException e) {
+            System.out.println(e.getCause());
         }
     }
 }
